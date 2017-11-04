@@ -9,28 +9,27 @@ H_proto = struct(
     batch_size=64,
     val_batch_size=1000,
     epochs=10,
-    lrs=[
-        0.001, 0.003, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.07, 0.1, 0.3, 0.5,
-        1
-    ],
+    lr=0.01,
+    caps=[10, 20, 50, 70, 100, 200, 500],
     momentum=0.5,
 )
 S_proto = struct(epoch=0, bn=0)
 
-log = Logger('mnist_lr2', H_proto, S_proto, load=True, metric_show_freq=1)
+log = Logger(
+    'mnist_capacity', H_proto, S_proto, overwrite=True, metric_show_freq=1)
 
 tn_loader, val_loader = loader(mnist(), H_proto.batch_size,
                                H_proto.val_batch_size)
 
-for epoch in range(S_proto.epoch, len(H_proto.lrs)):
+for epoch in range(S_proto.epoch, len(H_proto.caps)):
     S_proto.epoch = epoch
     log.flush()
-    lr = H_proto.lrs[epoch]
+    cap = H_proto.caps[epoch]
     H = H_proto.copy()
-    H.lr = lr
+    H.cap = cap
     S = struct(epoch=1, bn=1)
     inner_log = Logger(
-        'lr{}'.format(lr),
+        'cap{}'.format(cap),
         H,
         S,
         # overwrite=True,
@@ -44,8 +43,8 @@ for epoch in range(S_proto.epoch, len(H_proto.lrs)):
             self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
             self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
             self.conv2_drop = nn.Dropout2d()
-            self.fc1 = nn.Linear(320, 50)
-            self.fc2 = nn.Linear(50, 10)
+            self.fc1 = nn.Linear(320, cap)
+            self.fc2 = nn.Linear(cap, 10)
 
         def forward(self, x):
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
@@ -64,16 +63,24 @@ for epoch in range(S_proto.epoch, len(H_proto.lrs)):
     train(model, optimizer, tn_loader, val_loader, H, S, inner_log,
           struct(
               val_acc=acc_metric(model, val_loader),
-              val_loss=nll_metric(model, val_loader)))
+              val_loss=nll_metric(model, val_loader),
+              tn_loss=nll_metric(model, tn_loader),
+              tn_acc=acc_metric(model, tn_loader)))
 
     best_acc = max(
         batch.val_acc for batch in inner_log.metrics() if 'val_acc' in batch)
     best_loss = min(
         batch.val_loss for batch in inner_log.metrics() if 'val_loss' in batch)
-    log.log_metrics(
-        struct(best_acc=best_acc, best_loss=best_loss, lr=lr),
-        'LR {}'.format(lr))
+    train_loss = min(
+        batch.loss for batch in inner_log.metrics() if 'loss' in batch)
 
-if S_proto.epoch != len(H_proto.lrs) + 1:
-    S_proto.epoch = len(H_proto.lrs) + 1
+    log.log_metrics(
+        struct(
+            best_acc=best_acc,
+            best_loss=best_loss,
+            train_loss=train_loss,
+            cap=cap), 'Cap {}'.format(cap))
+
+if S_proto.epoch != len(H_proto.caps) + 1:
+    S_proto.epoch = len(H_proto.caps) + 1
     log.flush()

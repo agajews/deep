@@ -173,9 +173,22 @@ class Logger(object):
         for metric in self._metrics:
             metric.update(updater(struct(**metric)))
 
+    def dedup_metrics(self):
+        uniques = []
+        signatures = set()
+        for metric in reversed(self._metrics):
+            signature = (metric['epoch'], metric['bn'], frozenset(
+                metric.keys()))
+            if signature not in signatures:
+                signatures.add(signature)
+                uniques.append(metric)
+        uniques = sorted(uniques, key=lambda m: (m['epoch'], m['bn']))
+        self._metrics = uniques
+
     def flush(self):
         self.flushing = True
         self.save_str(json.dumps(self.inventory), self.inventory_fnm)
+        self.dedup_metrics()
         self.save_str(json.dumps(self._metrics), self.inventory.metrics)
         self.save_str(json.dumps(self.state), self.inventory.state)
         self.flushing = False

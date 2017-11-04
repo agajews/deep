@@ -3,7 +3,49 @@ from torch.autograd import Variable
 from logger import struct
 
 
-def train(model, optimizer, tn_loader, val_loader, H, S, log):
+def loss_metric(model, loader, loss_fn):
+    def metric():
+        loss = 0
+        N = len(loader.dataset)
+        for data, target in loader:
+            data, target = data.cuda(), target.cuda()
+            data, target = Variable(data, volatile=True), Variable(target)
+            output = model(data)
+            loss += loss_fn(output, target)
+        loss /= N
+        return loss
+
+    return metric
+
+
+def nll_metric(model, loader):
+    return loss_metric(
+        model, loader,
+        lambda output, target: F.nll_loss(output, target, size_average=False).data[0]
+    )
+
+
+def acc_metric(model, loader):
+    def metric():
+        correct = 0
+        N = len(loader.dataset)
+        for data, target in loader:
+            data, target = data.cuda(), target.cuda()
+            data, target = Variable(data, volatile=True), Variable(target)
+            output = model(data)
+            pred = output.data.max(dim=1, keepdim=True)[1]
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+        acc = 100. * correct / N
+        return acc
+
+    return metric
+
+
+def train(model, optimizer, tn_loader, val_loader, H, S, log,
+          val_metrics=None):
+    if val_metrics is None:
+        val_metrics = {}
+
     def params_reader():
         return struct(
             model_state=model.state_dict(), optim_state=optimizer.state_dict())
@@ -32,21 +74,10 @@ def train(model, optimizer, tn_loader, val_loader, H, S, log):
 
     def val():
         model.eval()
-        val_loss = 0
-        correct = 0
-        N = len(val_loader.dataset)
-        for data, target in val_loader:
-            data, target = data.cuda(), target.cuda()
-            data, target = Variable(data, volatile=True), Variable(target)
-            output = model(data)
-            val_loss += F.nll_loss(output, target, size_average=False).data[0]
-            pred = output.data.max(dim=1, keepdim=True)[1]
-            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
-
-        val_loss /= N
-        val_acc = 100. * correct / N
-        log.log_metrics(
-            struct(val_loss=val_loss, val_acc=val_acc), show=True, desc='Val')
+        metrics = struct()
+        for name, metric in val_metrics.items():
+            metrics[name] = metric()
+        log.log_metrics(metrics, show=True, desc='Val')
 
     for epoch in range(S.epoch, H.epochs + 1):
         if epoch == 1:
@@ -55,5 +86,6 @@ def train(model, optimizer, tn_loader, val_loader, H, S, log):
         log.flush()
         train()
         val()
-    S.epoch += 1
-    log.flush()
+    if S.epoch != H.epochs + 1:
+        S.epoch = H.epochs + 1
+        log.flush()
