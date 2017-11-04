@@ -101,7 +101,7 @@ class Logger(object):
         self.kill_asap = False
 
         signal.signal(signal.SIGINT, self.int_handler)
-        signal.signal(signal.SIGTERM, self.int_handler)
+        # signal.signal(signal.SIGTERM, self.int_handler)
 
     # def load_params(self):
     #     if len(self.inventory.params) > 0:
@@ -177,8 +177,9 @@ class Logger(object):
         uniques = []
         signatures = set()
         for metric in reversed(self._metrics):
-            signature = (metric['epoch'], metric['bn'], frozenset(
-                metric.keys()))
+            # signature = (metric['epoch'], metric['bn'], frozenset(
+            #     metric.keys()))
+            signature = (metric['epoch'], metric['bn'])
             if signature not in signatures:
                 signatures.add(signature)
                 uniques.append(metric)

@@ -16,7 +16,8 @@ H_proto = struct(
 )
 S_proto = struct(epoch=0, bn=0)
 
-log = Logger('mnist_capacity', H_proto, S_proto, load=True, metric_show_freq=1)
+log = Logger(
+    'mnist_capacity_nodrop', H_proto, S_proto, load=True, metric_show_freq=1)
 
 tn_loader, val_loader = loader(mnist(), H_proto.batch_size,
                                H_proto.val_batch_size)
@@ -42,16 +43,14 @@ for epoch in range(S_proto.epoch, len(H_proto.caps)):
             super(Net, self).__init__()
             self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
             self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-            self.conv2_drop = nn.Dropout2d()
             self.fc1 = nn.Linear(320, cap)
             self.fc2 = nn.Linear(cap, 10)
 
         def forward(self, x):
             x = F.relu(F.max_pool2d(self.conv1(x), 2))
-            x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+            x = F.relu(F.max_pool2d(self.conv2(x), 2))
             x = x.view(-1, 320)
             x = F.relu(self.fc1(x))
-            x = F.dropout(x, training=self.training)
             x = self.fc2(x)
             return F.log_softmax(x)
 

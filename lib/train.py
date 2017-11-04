@@ -41,8 +41,15 @@ def acc_metric(model, loader):
     return metric
 
 
-def train(model, optimizer, tn_loader, val_loader, H, S, log,
-          val_metrics=None):
+def train(model,
+          optimizer,
+          tn_loader,
+          val_loader,
+          H,
+          S,
+          log,
+          val_metrics=None,
+          loss_fn=F.nll_loss):
     if val_metrics is None:
         val_metrics = {}
 
@@ -65,7 +72,7 @@ def train(model, optimizer, tn_loader, val_loader, H, S, log,
             data, target = Variable(data), Variable(target)
             optimizer.zero_grad()
             output = model(data)
-            loss = F.nll_loss(output, target)
+            loss = loss_fn(output, target)
             loss.backward()
             optimizer.step()
             log.log_metrics(struct(loss=loss.data[0]))
