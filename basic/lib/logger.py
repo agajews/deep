@@ -139,6 +139,7 @@ class Logger(object):
             return pickle.load(f)
 
     def log_params(self):
+        # print('Saving params...')
         if self.params_reader is not None:
             self.saving_params = True
             fnm = os.path.join(self.param_dir, 'e{}_bn{}.pk'.format(
@@ -150,6 +151,7 @@ class Logger(object):
             })
             self.save_pk(self.params_reader().todict(), fnm)
             self.saving_params = False
+        # print('Done')
         if self.kill_asap:
             self.kill()
 

@@ -1,6 +1,7 @@
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from datasets import mnist, loader
 from logger import struct, Logger
 from train import train, acc_metric, nll_metric
@@ -18,6 +19,7 @@ H_proto = struct(
 S_proto = struct(epoch=0, bn=0)
 
 log = Logger('mnist_lr2', H_proto, S_proto, load=True, metric_show_freq=1)
+S_proto.epoch = 0
 
 tn_loader, val_loader = loader(mnist(), H_proto.batch_size,
                                H_proto.val_batch_size)
@@ -66,13 +68,42 @@ for epoch in range(S_proto.epoch, len(H_proto.lrs)):
               val_acc=acc_metric(model, val_loader),
               val_loss=nll_metric(model, val_loader)))
 
-    best_acc = max(
-        batch.val_acc for batch in inner_log.metrics() if 'val_acc' in batch)
-    best_loss = min(
-        batch.val_loss for batch in inner_log.metrics() if 'val_loss' in batch)
+    val_accs = [
+        batch.val_acc for batch in inner_log.metrics() if 'val_acc' in batch
+    ]
+    val_losses = [
+        batch.val_loss for batch in inner_log.metrics() if 'val_loss' in batch
+    ]
+    tn_accs = [
+        batch.tn_acc for batch in inner_log.metrics() if 'tn_acc' in batch
+    ]
+    tn_losses = [
+        batch.tn_loss for batch in inner_log.metrics() if 'tn_loss' in batch
+    ]
+
+    best_acc = max(val_accs)
+    best_acc_idx = int(np.argmax(val_accs))
+
+    best_loss = min(val_losses)
+    best_loss_idx = int(np.argmin(val_losses))
+
+    best_tn_acc = max(tn_accs)
+    best_tn_acc_idx = int(np.argmax(tn_accs))
+
+    best_tn_loss = min(tn_losses)
+    best_tn_loss_idx = int(np.argmin(tn_losses))
+
     log.log_metrics(
-        struct(best_acc=best_acc, best_loss=best_loss, lr=lr),
-        'LR {}'.format(lr))
+        struct(
+            best_acc=best_acc,
+            best_loss=best_loss,
+            best_acc_idx=best_acc_idx,
+            best_loss_idx=best_loss_idx,
+            best_tn_acc=best_tn_acc,
+            best_tn_loss=best_tn_loss,
+            best_tn_acc_idx=best_tn_acc_idx,
+            best_tn_loss_idx=best_tn_loss_idx,
+            lr=lr), 'LR {}'.format(lr))
 
 if S_proto.epoch != len(H_proto.lrs) + 1:
     S_proto.epoch = len(H_proto.lrs) + 1
