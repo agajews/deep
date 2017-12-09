@@ -152,6 +152,15 @@ def wrap_deepmind(env):
     return env
 
 
+class WrapPyTorch(gym.ObservationWrapper):
+    def __init__(self, env=None):
+        super(WrapPyTorch, self).__init__(env)
+        self.observation_space = spaces.box.Box(0.0, 1.0, [1, 84, 84])
+
+    def _observation(self, observation):
+        return observation.transpose(2, 0, 1)
+
+
 def get_env(env_name):
     env = gym.make(env_name)
 
@@ -161,5 +170,6 @@ def get_env(env_name):
     # expt_dir = 'tmp/gym-results'
     # env = wrappers.Monitor(env, expt_dir, force=True)
     env = wrap_deepmind(env)
+    env = WrapPyTorch(env)
 
     return env

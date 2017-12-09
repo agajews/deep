@@ -1,3 +1,7 @@
 data/
 logs/
+pigs/data/
+*.out
+*.tar
+*.csv
 *\~

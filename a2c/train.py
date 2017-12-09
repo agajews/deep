@@ -45,7 +45,7 @@ def train(model,
     actions = torch.LongTensor(num_steps, num_envs)
     masks = torch.zeros(num_steps, num_envs, 1)
 
-    # These variables are used to compute average rewards for all processes.
+    # These variables are used to compute reward stats for all processes.
     episode_rewards = torch.zeros([num_envs, 1])
     final_rewards = torch.zeros([num_envs, 1])
 
@@ -69,7 +69,7 @@ def train(model,
             cpu_actions = actions[step].cpu()
             cpu_actions = cpu_actions.numpy()
 
-            # Obser reward and next state
+            # Observe reward and next state
             state, reward, done, info = envs.step(cpu_actions)
 
             reward = torch.from_numpy(np.expand_dims(np.stack(reward),
@@ -124,9 +124,9 @@ def train(model,
 
         action_loss = -(Variable(advantages.data) * action_log_probs).mean()
 
+        loss = value_loss * value_loss_coef + action_loss - dist_entropy * entropy_coef
         optim.zero_grad()
-        (value_loss * value_loss_coef + action_loss -
-         dist_entropy * entropy_coef).backward()
+        loss.backward()
 
         nn.utils.clip_grad_norm(model.parameters(), max_grad_norm)
         optim.step()

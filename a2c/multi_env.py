@@ -27,14 +27,13 @@ def worker(remote, parent_remote, env_fn):
             raise NotImplementedError
 
 
-class SubprocVecEnv(object):
+class MultiEnv(object):
     def __init__(self, env_fn, nenvs):
         self.closed = False
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
         self.ps = [
             Process(target=worker, args=(work_remote, remote, env_fn))
-            for (work_remote, remote,
-                 env) in zip(self.work_remotes, self.remotes)
+            for (work_remote, remote) in zip(self.work_remotes, self.remotes)
         ]
         for p in self.ps:
             p.daemon = True  # if the main process crashes, we should not cause things to hang
